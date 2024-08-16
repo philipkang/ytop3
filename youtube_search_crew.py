@@ -1,12 +1,10 @@
 import os
 import streamlit as st
-from crewai import Agent, Task, Crew, Process
-from langchain.tools import Tool
 from googleapiclient.discovery import build
-from langchain_openai import OpenAI
-import logging
+import openai
 import requests
 from bs4 import BeautifulSoup
+import logging
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -84,77 +82,37 @@ def search_youtube_videos(topic):
         logging.info("Falling back to web scraping method")
         return fallback_youtube_search(topic)
 
-youtube_search_tool = Tool(
-    name="YouTube Search",
-    func=search_youtube_videos,
-    description="Search for YouTube videos on a given topic related to Generative AI and Large Language Model"
-)
+def analyze_videos(videos, topic):
+    openai.api_key = openai_api_key
+    
+    prompt = f"""Analyze the following list of YouTube videos related to the topic '{topic}':
 
-youtube_search_agent = Agent(
-    role='YouTube Search Agent',
-    goal='Find the most relevant YouTube videos for the given topic, ensuring close match with key words.',
-    verbose=True,
-    allow_delegation=False,
-    backstory=(
-        "You are an expert in finding the most relevant YouTube videos based on the exact topic provided. "
-        "You focus on videos whose titles closely match the key words in the given topic, "
-        "especially in the context of Generative AI and LLM development. If the search fails, you provide clear instructions for manual search."
-    ),
-    tools=[youtube_search_tool]
-)
+{videos}
 
-video_analyst = Agent(
-    role='Video Analyst',
-    goal='Analyze the list of YouTube videos and pick the top 3 unique matches that are most relevant to the exact topic, ensuring no videos are from the same channel and prioritizing channels with high subscriber counts.',
-    verbose=True,
-    allow_delegation=False,
-    backstory=(
-        "You excel in analyzing video content relevance and channel popularity. You carefully evaluate video titles to ensure "
-        "they closely match the given topic. You prioritize videos that specifically mention key words from the topic "
-        "and come from channels with high subscriber counts (preferably over 100,000 subscribers). "
-        "You also consider recency and view count as secondary factors. "
-        "You ensure that there are no duplicate entries in your final selection and that no two videos are from the same channel. "
-        "If given instructions for manual search, you explain how to analyze the results. "
-        "When presenting your final selection, use the following format for each video:\n"
-        "1. **Title:** [Video Title](Video URL)\n"
-        "   - **Channel:** Channel Name\n"
-        "   - **Subscribers:** Subscriber Count\n"
-        "   - **Views:** View Count\n"
-        "   - **Publication Date:** Publication Date\n"
-        "   - **Video Url:** Url Link\n\n"
+Select the top 3 unique videos that are most relevant to the topic '{topic}'. Consider the following criteria:
+1. The video title should closely match the topic.
+2. Prioritize channels with high subscriber counts (preferably over 100,000 subscribers).
+3. Consider view count and recency as secondary factors.
+4. Ensure no two videos are from the same channel.
+
+For each selected video, provide the following information:
+1. Title (with link)
+2. Channel name
+3. Subscriber count
+4. View count
+5. Publication date
+
+Present the results in a clear, formatted manner."""
+
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant that analyzes YouTube video search results."},
+            {"role": "user", "content": prompt}
+        ]
     )
-)
-
-search_task = Task(
-    description=(
-        f"Search YouTube for videos that closely match the topic '{topic}'. "
-        "Ensure the video titles contain key words from the topic. "
-        "Provide a list of videos including their titles, channels, subscriber numbers, view counts, "
-        "publication dates, and video link URLs. If the search fails, provide clear instructions for manual search."
-    ),
-    expected_output='A list of YouTube videos with title, channel name, subscriber count, view count, publication date and video url link, ensuring close match to the topic. Or instructions for manual search if automated search fails.',
-    agent=youtube_search_agent
-)
-
-analyze_task = Task(
-    description=(
-        f"Review the list of YouTube videos provided or the manual search instructions. If given a list, select the top 3 unique videos whose titles "
-        f"most closely match the topic '{topic}'. Prioritize videos that specifically mention "
-        "key words from the topic and come from channels with high subscriber counts (preferably over 100,000 subscribers). "
-        "Consider recency and view count as secondary factors. "
-        "Ensure there are no duplicates in your final selection and that no two videos are from the same channel. "
-        "Present each video only once in your output, including the view count for each video. "
-        "If given manual search instructions, explain how to analyze the results."
-    ),
-    expected_output='A list of the top 3 unique YouTube videos most relevant to the topic, with their titles, channel names, subscriber counts (prioritizing channels with over 100,000 subscribers), view counts, publication dates, and video url links. Each video should appear only once, and no two videos should be from the same channel. Or an explanation of how to analyze manual search results.',
-    agent=video_analyst
-)
-
-crew = Crew(
-    agents=[youtube_search_agent, video_analyst],
-    tasks=[search_task, analyze_task],
-    process=Process.sequential
-)
+    
+    return response.choices[0].message['content']
 
 # Button to start the search
 if st.button("Search and Analyze"):
@@ -165,10 +123,11 @@ if st.button("Search and Analyze"):
     else:
         with st.spinner("Searching and analyzing videos..."):
             try:
-                result = crew.kickoff()
+                videos = search_youtube_videos(topic)
+                result = analyze_videos(videos, topic)
                 st.success("Search and analysis complete!")
                 st.markdown(result)
             except Exception as e:
-                logging.error(f"Error during crew execution: {str(e)}")
+                logging.error(f"Error during execution: {str(e)}")
                 st.error(f"An error occurred: {str(e)}")
                 st.info("Please try again or check the logs for more information.")

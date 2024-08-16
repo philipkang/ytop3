@@ -3,5 +3,4 @@ crewai
 langchain
 langchain-openai
 google-api-python-client
-chromadb==0.3.29
-pysqlite3-binary
+chromadb==0.3.21

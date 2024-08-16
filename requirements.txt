@@ -3,4 +3,5 @@ crewai
 langchain
 langchain-openai
 google-api-python-client
-chromadb==0.3.21
+beautifulsoup4
+requests

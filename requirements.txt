@@ -1,7 +1,5 @@
 streamlit
-crewai
-langchain
-langchain-openai
+openai
 google-api-python-client
-beautifulsoup4
 requests
+beautifulsoup4

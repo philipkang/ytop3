@@ -1,7 +1,7 @@
 import os
 import streamlit as st
 from googleapiclient.discovery import build
-import openai
+from openai import OpenAI
 import requests
 from bs4 import BeautifulSoup
 import logging
@@ -83,7 +83,7 @@ def search_youtube_videos(topic):
         return fallback_youtube_search(topic)
 
 def analyze_videos(videos, topic):
-    openai.api_key = openai_api_key
+    client = OpenAI(api_key=openai_api_key)
     
     prompt = f"""Analyze the following list of YouTube videos related to the topic '{topic}':
 
@@ -104,7 +104,7 @@ For each selected video, provide the following information:
 
 Present the results in a clear, formatted manner."""
 
-    response = openai.ChatCompletion.create(
+    response = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": "You are a helpful assistant that analyzes YouTube video search results."},
@@ -112,7 +112,7 @@ Present the results in a clear, formatted manner."""
         ]
     )
     
-    return response.choices[0].message['content']
+    return response.choices[0].message.content
 
 # Button to start the search
 if st.button("Search and Analyze"):

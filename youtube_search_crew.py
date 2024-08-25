@@ -105,7 +105,7 @@ For each selected video, provide the following information:
 Present the results in a clear, formatted manner."""
 
     response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": "You are a helpful assistant that analyzes YouTube video search results."},
             {"role": "user", "content": prompt}
